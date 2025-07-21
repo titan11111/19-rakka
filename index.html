@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SKY BREAK：墜天ノ契約</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="titleScreen" class="screen">
+            <h1>SKY BREAK</h1>
+            <h2>墜天ノ契約</h2>
+            <div class="story">
+                <p>空に浮かぶ塔から、何かに導かれるように落下する主人公。</p>
+                <p>記憶片に触れ、コードを解放せよ。</p>
+            </div>
+            <button id="startBtn" class="game-btn">開始</button>
+            <div class="controls">
+                <p>操作：左右キー or タッチで移動</p>
+                <p>スペースキー or タップでスキル発動</p>
+            </div>
+        </div>
+
+        <div id="gameScreen" class="screen hidden">
+            <div id="gameUI">
+                <div id="score">距離: 0m</div>
+                <div id="codes">コード: 0</div>
+                <div id="skillDisplay">スキル: なし</div>
+                <div id="altitude">高度: 10000m</div>
+            </div>
+            <canvas id="gameCanvas"></canvas>
+            <div id="touchControls">
+                <button id="leftBtn" class="touch-btn">←</button>
+                <button id="skillBtn" class="touch-btn skill">スキル</button>
+                <button id="rightBtn" class="touch-btn">→</button>
+            </div>
+        </div>
+
+        <div id="gameOverScreen" class="screen hidden">
+            <h2>墜落完了</h2>
+            <div id="finalScore">距離: 0m</div>
+            <div id="finalCodes">回収したコード: 0</div>
+            <div id="unlockedSkills">解放したスキル: なし</div>
+            <button id="restartBtn" class="game-btn">再挑戦</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

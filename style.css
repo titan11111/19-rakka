@@ -1,0 +1,320 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Arial', sans-serif;
+    background: linear-gradient(180deg, #1a1a3a 0%, #0f0f2a 50%, #000015 100%);
+    color: #ffffff;
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+#gameContainer {
+    width: 100%;
+    height: 100vh;
+    position: relative;
+    overflow: hidden;
+}
+
+.screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: inherit;
+    z-index: 10;
+}
+
+.screen.hidden {
+    display: none;
+}
+
+/* タイトル画面 */
+#titleScreen {
+    background: linear-gradient(180deg, #2a2a5a 0%, #1a1a3a 50%, #0f0f2a 100%);
+    animation: skyFloat 6s ease-in-out infinite;
+}
+
+@keyframes skyFloat {
+    0%, 100% { background-position: 0% 0%; }
+    50% { background-position: 0% 20%; }
+}
+
+#titleScreen h1 {
+    font-size: 4rem;
+    text-shadow: 0 0 20px #4a9eff, 0 0 40px #4a9eff;
+    margin-bottom: 0.5rem;
+    animation: titleGlow 2s ease-in-out infinite alternate;
+}
+
+#titleScreen h2 {
+    font-size: 2rem;
+    color: #ccccff;
+    margin-bottom: 2rem;
+    letter-spacing: 0.2rem;
+}
+
+@keyframes titleGlow {
+    0% { text-shadow: 0 0 20px #4a9eff, 0 0 40px #4a9eff; }
+    100% { text-shadow: 0 0 30px #4a9eff, 0 0 60px #4a9eff, 0 0 80px #4a9eff; }
+}
+
+.story {
+    text-align: center;
+    margin-bottom: 3rem;
+    line-height: 1.8;
+    font-size: 1.1rem;
+    color: #dddddd;
+    max-width: 600px;
+    padding: 0 20px;
+}
+
+.controls {
+    margin-top: 2rem;
+    text-align: center;
+    color: #aaaaaa;
+    font-size: 0.9rem;
+}
+
+.game-btn {
+    padding: 15px 40px;
+    font-size: 1.2rem;
+    background: linear-gradient(45deg, #4a9eff, #0070f3);
+    color: white;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 5px 15px rgba(74, 158, 255, 0.3);
+    margin: 10px;
+}
+
+.game-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(74, 158, 255, 0.5);
+}
+
+.game-btn:active {
+    transform: translateY(0);
+}
+
+/* ゲーム画面 */
+#gameScreen {
+    justify-content: flex-start;
+    align-items: stretch;
+    background: linear-gradient(180deg, #1a1a3a 0%, #000015 100%);
+}
+
+#gameUI {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    right: 20px;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    z-index: 20;
+    font-size: 1.1rem;
+    font-weight: bold;
+}
+
+#gameUI > div {
+    background: rgba(0, 0, 0, 0.7);
+    padding: 8px 15px;
+    border-radius: 15px;
+    margin: 5px;
+    border: 1px solid rgba(74, 158, 255, 0.3);
+}
+
+#score {
+    color: #4a9eff;
+    text-shadow: 0 0 10px #4a9eff;
+}
+
+#codes {
+    color: #ff6b6b;
+    text-shadow: 0 0 10px #ff6b6b;
+}
+
+#skillDisplay {
+    color: #ffd93d;
+    text-shadow: 0 0 10px #ffd93d;
+}
+
+#altitude {
+    color: #6bcf7f;
+    text-shadow: 0 0 10px #6bcf7f;
+}
+
+#gameCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    background: transparent;
+}
+
+/* タッチ操作 */
+#touchControls {
+    position: absolute;
+    bottom: 20px;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    z-index: 30;
+}
+
+.touch-btn {
+    width: 60px;
+    height: 60px;
+    background: rgba(74, 158, 255, 0.8);
+    border: none;
+    border-radius: 50%;
+    color: white;
+    font-size: 1.5rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 15px rgba(74, 158, 255, 0.3);
+}
+
+.touch-btn:active {
+    transform: scale(0.9);
+    background: rgba(74, 158, 255, 1);
+}
+
+.touch-btn.skill {
+    background: linear-gradient(45deg, #ffd93d, #ff9500);
+    box-shadow: 0 4px 15px rgba(255, 217, 61, 0.3);
+}
+
+.touch-btn.skill:active {
+    background: linear-gradient(45deg, #ffe066, #ffb133);
+}
+
+/* ゲームオーバー画面 */
+#gameOverScreen {
+    background: linear-gradient(180deg, #2a1a1a 0%, #1a0f0f 50%, #150000 100%);
+}
+
+#gameOverScreen h2 {
+    font-size: 2.5rem;
+    color: #ff6b6b;
+    text-shadow: 0 0 20px #ff6b6b;
+    margin-bottom: 2rem;
+}
+
+#finalScore, #finalCodes, #unlockedSkills {
+    font-size: 1.3rem;
+    margin: 10px 0;
+    padding: 10px 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+#finalScore {
+    color: #4a9eff;
+}
+
+#finalCodes {
+    color: #ff6b6b;
+}
+
+#unlockedSkills {
+    color: #ffd93d;
+}
+
+/* レスポンシブデザイン */
+@media (max-width: 768px) {
+    #titleScreen h1 {
+        font-size: 2.5rem;
+    }
+    
+    #titleScreen h2 {
+        font-size: 1.5rem;
+    }
+    
+    .story {
+        font-size: 1rem;
+        padding: 0 15px;
+    }
+    
+    #gameUI {
+        font-size: 0.9rem;
+        top: 10px;
+        left: 10px;
+        right: 10px;
+    }
+    
+    #gameUI > div {
+        padding: 6px 10px;
+        margin: 3px;
+    }
+    
+    .touch-btn {
+        width: 50px;
+        height: 50px;
+        font-size: 1.2rem;
+    }
+    
+    #touchControls {
+        bottom: 15px;
+        gap: 15px;
+    }
+}
+
+@media (max-width: 480px) {
+    #titleScreen h1 {
+        font-size: 2rem;
+    }
+    
+    #titleScreen h2 {
+        font-size: 1.2rem;
+    }
+    
+    .story {
+        font-size: 0.9rem;
+    }
+    
+    .game-btn {
+        padding: 12px 30px;
+        font-size: 1rem;
+    }
+    
+    #gameUI {
+        font-size: 0.8rem;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    #gameUI > div {
+        padding: 4px 8px;
+        margin: 2px;
+    }
+    
+    .touch-btn {
+        width: 45px;
+        height: 45px;
+        font-size: 1rem;
+    }
+    
+    #touchControls {
+        bottom: 10px;
+        gap: 10px;
+    }
+}
