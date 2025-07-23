@@ -1,774 +1,574 @@
-// ゲームの状態管理
-let gameState = {
-    screen: 'title', // title, playing, gameOver
-    score: 0,
-    codes: 0,
-    altitude: 10000,
-    gameSpeed: 2,
-    lives: 3
-};
+// HTML要素の取得
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const scoreDisplay = document.getElementById('score');
+const highScoreDisplay = document.getElementById('highScore');
+const gameOverOverlay = document.getElementById('gameOverOverlay');
+const finalScoreDisplay = document.getElementById('finalScore');
+const newHighScoreDisplay = document.getElementById('newHighScore');
+const restartButton = document.getElementById('restartButton');
+const startButton = document.getElementById('startButton');
+const startScreen = document.getElementById('startScreen');
+const leftButton = document.getElementById('leftButton');
+const rightButton = document.getElementById('rightButton');
 
-// プレイヤー設定
-let player = {
-    x: 0,
-    y: 0,
-    width: 30,
-    height: 30,
-    speed: 5,
-    fallSpeed: 0, // 落下速度（プレイヤーは固定位置）
-    invulnerable: false,
-    invulnerableTime: 0,
-    hasSlowMotion: false,
-    hasWarp: false,
-    hasInvisible: false,
-    activeSkill: null,
-    skillCooldown: 0
-};
+// パワーアップ表示要素
+const speedBoostTimeDisplay = document.getElementById('speedBoostTime');
+const shieldTimeDisplay = document.getElementById('shieldTime');
+const starCountDisplay = document.getElementById('starCount');
 
-// ゲーム要素の配列
-let memoryFragments = [];
+// ゲームの状態変数
+let player;
 let obstacles = [];
+let items = [];
 let particles = [];
-let gravityZones = [];
-let terrain = [];
+let score = 0;
+let highScore = localStorage.getItem('highScore') || 0;
+let gameOver = false;
+let gameStarted = false;
+let gameLoopId;
 
-// キャンバスとコンテキスト
-let canvas, ctx;
-let gameLoop;
+// ゲーム設定
+const GAME_WIDTH = 300;
+const GAME_HEIGHT = 400;
+const PLAYER_SIZE = 25;
+const PLAYER_SPEED = 4;
+let GRAVITY = 0.008;
+const OBSTACLE_HEIGHT = 15;
+let OBSTACLE_SPEED = 0.2;
+let OBSTACLE_SPAWN_INTERVAL = 1200;
+const ITEM_SIZE = 20;
+const ITEM_SPEED = 0.15;
 
-// 入力管理
-let keys = {};
-let touchInput = {
-    left: false,
-    right: false,
-    skill: false
-};
+let lastObstacleSpawnTime = 0;
+let lastItemSpawnTime = 0;
+let lastDifficultyScore = -1;
 
-// 初期化
-document.addEventListener('DOMContentLoaded', function() {
-    initGame();
-    setupEventListeners();
-});
+// パワーアップ効果
+let speedBoostTime = 0;
+let shieldTime = 0;
+let starCount = 0;
 
-function initGame() {
-    // キャンバスの初期化
-    canvas = document.getElementById('gameCanvas');
-    ctx = canvas.getContext('2d');
+// 効果音（Web Audio API使用）
+const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+function playSound(frequency, duration, type = 'sine') {
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
     
-    // キャンバスサイズを設定
-    resizeCanvas();
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
     
-    // ゲーム状態をリセット
-    resetGameState();
+    oscillator.frequency.value = frequency;
+    oscillator.type = type;
     
-    // 初期地形の生成
-    generateTerrain();
+    gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + duration);
 }
 
+// 効果音関数
+function playJumpSound() { playSound(440, 0.1); }
+function playItemSound() { playSound(660, 0.2); }
+function playPowerUpSound() { playSound(880, 0.3); }
+function playGameOverSound() { playSound(220, 0.5, 'sawtooth'); }
+function playHitSound() { playSound(150, 0.2, 'square'); }
+
+// キャンバスのリサイズと初期化
 function resizeCanvas() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    
-    // プレイヤーの初期位置を設定（画面の下部に固定）
-    player.x = canvas.width / 2 - player.width / 2;
-    player.y = canvas.height - 150; // 画面下部に固定
-}
+    const containerWidth = canvas.parentElement.clientWidth;
+    const containerHeight = canvas.parentElement.clientHeight;
 
-function resetGameState() {
-    gameState.screen = 'title';
-    gameState.score = 0;
-    gameState.codes = 0;
-    gameState.altitude = 10000;
-    gameState.gameSpeed = 2;
-    gameState.lives = 3;
-    
-    player.x = canvas.width / 2 - player.width / 2;
-    player.y = canvas.height - 150; // 画面下部に固定
-    player.fallSpeed = 0;
-    player.invulnerable = false;
-    player.invulnerableTime = 0;
-    player.hasSlowMotion = false;
-    player.hasWarp = false;
-    player.hasInvisible = false;
-    player.activeSkill = null;
-    player.skillCooldown = 0;
-    
-    memoryFragments = [];
-    obstacles = [];
-    particles = [];
-    gravityZones = [];
-    terrain = [];
-}
+    let newWidth = Math.min(containerWidth, GAME_WIDTH);
+    let newHeight = newWidth * (GAME_HEIGHT / GAME_WIDTH);
 
-function setupEventListeners() {
-    // スタートボタン
-    document.getElementById('startBtn').addEventListener('click', startGame);
-    
-    // リスタートボタン
-    document.getElementById('restartBtn').addEventListener('click', restartGame);
-    
-    // キーボード操作
-    document.addEventListener('keydown', function(e) {
-        keys[e.key] = true;
-        if (e.key === ' ' || e.key === 'Spacebar') {
-            e.preventDefault();
-            if (gameState.screen === 'playing') {
-                activateSkill();
-            }
-        }
-    });
-    
-    document.addEventListener('keyup', function(e) {
-        keys[e.key] = false;
-    });
-    
-    // タッチ操作
-    document.getElementById('leftBtn').addEventListener('touchstart', function(e) {
-        e.preventDefault();
-        touchInput.left = true;
-    });
-    
-    document.getElementById('leftBtn').addEventListener('touchend', function(e) {
-        e.preventDefault();
-        touchInput.left = false;
-    });
-    
-    document.getElementById('rightBtn').addEventListener('touchstart', function(e) {
-        e.preventDefault();
-        touchInput.right = true;
-    });
-    
-    document.getElementById('rightBtn').addEventListener('touchend', function(e) {
-        e.preventDefault();
-        touchInput.right = false;
-    });
-    
-    document.getElementById('skillBtn').addEventListener('touchstart', function(e) {
-        e.preventDefault();
-        touchInput.skill = true;
-        activateSkill();
-    });
-    
-    document.getElementById('skillBtn').addEventListener('touchend', function(e) {
-        e.preventDefault();
-        touchInput.skill = false;
-    });
-    
-    // ウィンドウリサイズ対応
-    window.addEventListener('resize', function() {
-        resizeCanvas();
-    });
-}
-
-function startGame() {
-    gameState.screen = 'playing';
-    document.getElementById('titleScreen').classList.add('hidden');
-    document.getElementById('gameScreen').classList.remove('hidden');
-    
-    // ゲームループ開始
-    gameLoop = setInterval(updateGame, 1000 / 60); // 60FPS
-}
-
-function restartGame() {
-    clearInterval(gameLoop);
-    resetGameState();
-    document.getElementById('gameOverScreen').classList.add('hidden');
-    document.getElementById('titleScreen').classList.remove('hidden');
-}
-
-function updateGame() {
-    if (gameState.screen !== 'playing') return;
-    
-    // 入力処理
-    handleInput();
-    
-    // プレイヤー更新
-    updatePlayer();
-    
-    // ゲーム要素の更新
-    updateMemoryFragments();
-    updateObstacles();
-    updateParticles();
-    updateGravityZones();
-    updateTerrain();
-    
-    // 新しい要素の生成
-    generateGameElements();
-    
-    // 当たり判定
-    checkCollisions();
-    
-    // スコア更新
-    updateScore();
-    
-    // 描画
-    render();
-    
-    // UI更新
-    updateUI();
-}
-
-function handleInput() {
-    // 左右移動
-    if (keys['ArrowLeft'] || keys['a'] || keys['A'] || touchInput.left) {
-        player.x -= player.speed;
+    if (newHeight > containerHeight) {
+        newHeight = containerHeight;
+        newWidth = newHeight * (GAME_WIDTH / GAME_HEIGHT);
     }
-    if (keys['ArrowRight'] || keys['d'] || keys['D'] || touchInput.right) {
-        player.x += player.speed;
-    }
-    
-    // 画面端での制限
-    if (player.x < 0) player.x = 0;
-    if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+
+    canvas.width = GAME_WIDTH;
+    canvas.height = GAME_HEIGHT;
+    canvas.style.width = `${newWidth}px`;
+    canvas.style.height = `${newHeight}px`;
 }
 
-function updatePlayer() {
-    // プレイヤーは画面下部に固定されているので、y座標は変更しない
-    
-    // 無敵時間の更新
-    if (player.invulnerable) {
-        player.invulnerableTime--;
-        if (player.invulnerableTime <= 0) {
-            player.invulnerable = false;
-        }
-    }
-    
-    // スキルクールダウン
-    if (player.skillCooldown > 0) {
-        player.skillCooldown--;
-    }
-    
-    // アクティブスキルの効果時間管理
-    if (player.activeSkill) {
-        player.activeSkill.duration--;
-        if (player.activeSkill.duration <= 0) {
-            deactivateSkill();
-        }
-    }
-}
+// プレイヤークラス
+function Player() {
+    this.x = GAME_WIDTH / 2 - PLAYER_SIZE / 2;
+    this.y = 50;
+    this.width = PLAYER_SIZE;
+    this.height = PLAYER_SIZE;
+    this.velocityY = 0;
+    this.isMovingLeft = false;
+    this.isMovingRight = false;
+    this.expression = 'normal';
+    this.hasShield = false;
+    this.shieldFlashTime = 0;
 
-function updateMemoryFragments() {
-    for (let i = memoryFragments.length - 1; i >= 0; i--) {
-        let fragment = memoryFragments[i];
-        fragment.y += gameState.gameSpeed; // 下に移動
-        fragment.rotation += 0.1;
-        
-        // 画面下に出たら削除
-        if (fragment.y > canvas.height + 50) {
-            memoryFragments.splice(i, 1);
-        }
-    }
-}
+    this.draw = function() {
+        const centerX = this.x + this.width / 2;
+        const centerY = this.y + this.height / 2;
+        const size = this.width;
 
-function updateObstacles() {
-    for (let i = obstacles.length - 1; i >= 0; i--) {
-        let obstacle = obstacles[i];
-        obstacle.y += gameState.gameSpeed; // 下に移動
-        
-        // 動くタイプの障害物
-        if (obstacle.type === 'moving') {
-            obstacle.x += obstacle.speedX;
-            if (obstacle.x <= 0 || obstacle.x + obstacle.width >= canvas.width) {
-                obstacle.speedX *= -1;
-            }
-        }
-        
-        // 画面下に出たら削除
-        if (obstacle.y > canvas.height + 50) {
-            obstacles.splice(i, 1);
-        }
-    }
-}
-
-function updateParticles() {
-    for (let i = particles.length - 1; i >= 0; i--) {
-        let particle = particles[i];
-        particle.x += particle.speedX;
-        particle.y += particle.speedY;
-        particle.life--;
-        particle.alpha = particle.life / particle.maxLife;
-        
-        if (particle.life <= 0) {
-            particles.splice(i, 1);
-        }
-    }
-}
-
-function updateGravityZones() {
-    for (let i = gravityZones.length - 1; i >= 0; i--) {
-        let zone = gravityZones[i];
-        zone.y += gameState.gameSpeed; // 下に移動
-        
-        // 画面下に出たら削除
-        if (zone.y > canvas.height + 50) {
-            gravityZones.splice(i, 1);
-        }
-    }
-}
-
-function updateTerrain() {
-    for (let i = terrain.length - 1; i >= 0; i--) {
-        let block = terrain[i];
-        block.y += gameState.gameSpeed; // 下に移動
-        
-        // 画面下に出たら削除
-        if (block.y > canvas.height + 50) {
-            terrain.splice(i, 1);
-        }
-    }
-}
-
-function generateGameElements() {
-    // 記憶片の生成（画面上部から）
-    if (Math.random() < 0.02) {
-        memoryFragments.push({
-            x: Math.random() * (canvas.width - 30),
-            y: -30, // 画面上部から出現
-            width: 30,
-            height: 30,
-            rotation: 0,
-            type: getRandomFragmentType()
-        });
-    }
-    
-    // 障害物の生成（画面上部から）
-    if (Math.random() < 0.015) {
-        obstacles.push({
-            x: Math.random() * (canvas.width - 50),
-            y: -50, // 画面上部から出現
-            width: 50,
-            height: 50,
-            type: getRandomObstacleType(),
-            speedX: Math.random() * 2 - 1
-        });
-    }
-    
-    // 反重力ゾーンの生成（画面上部から）
-    if (Math.random() < 0.005) {
-        gravityZones.push({
-            x: Math.random() * (canvas.width - 100),
-            y: -100, // 画面上部から出現
-            width: 100,
-            height: 100,
-            type: 'antiGravity'
-        });
-    }
-    
-    // 地形の生成（画面上部から）
-    if (Math.random() < 0.01) {
-        generateTerrain();
-    }
-}
-
-function getRandomFragmentType() {
-    const types = ['slow', 'warp', 'invisible'];
-    return types[Math.floor(Math.random() * types.length)];
-}
-
-function getRandomObstacleType() {
-    const types = ['static', 'moving', 'spike'];
-    return types[Math.floor(Math.random() * types.length)];
-}
-
-function generateTerrain() {
-    for (let i = 0; i < 3; i++) {
-        terrain.push({
-            x: Math.random() * (canvas.width - 80),
-            y: -100 - i * 150, // 画面上部から出現
-            width: 80 + Math.random() * 40,
-            height: 20,
-            type: 'platform'
-        });
-    }
-}
-
-function checkCollisions() {
-    // プレイヤーが無敵状態でない場合のみ当たり判定
-    if (!player.invulnerable) {
-        // 障害物との当たり判定
-        for (let obstacle of obstacles) {
-            if (isColliding(player, obstacle)) {
-                takeDamage();
-                break;
-            }
-        }
-        
-        // 地形との当たり判定
-        for (let block of terrain) {
-            if (isColliding(player, block)) {
-                takeDamage();
-                break;
-            }
-        }
-    }
-    
-    // 記憶片との当たり判定
-    for (let i = memoryFragments.length - 1; i >= 0; i--) {
-        let fragment = memoryFragments[i];
-        if (isColliding(player, fragment)) {
-            collectMemoryFragment(fragment);
-            memoryFragments.splice(i, 1);
-            break;
-        }
-    }
-    
-    // 反重力ゾーンとの当たり判定
-    for (let zone of gravityZones) {
-        if (isColliding(player, zone)) {
-            applyGravityEffect(zone);
-        }
-    }
-}
-
-function isColliding(obj1, obj2) {
-    // 透明化スキルが有効な場合、当たり判定を無効化
-    if (player.activeSkill && player.activeSkill.type === 'invisible') {
-        return false;
-    }
-    
-    return obj1.x < obj2.x + obj2.width &&
-           obj1.x + obj1.width > obj2.x &&
-           obj1.y < obj2.y + obj2.height &&
-           obj1.y + obj1.height > obj2.y;
-}
-
-function takeDamage() {
-    gameState.lives--;
-    player.invulnerable = true;
-    player.invulnerableTime = 120; // 2秒間無敵
-    
-    // ダメージエフェクト
-    createParticles(player.x + player.width / 2, player.y + player.height / 2, '#ff6b6b', 10);
-    
-    if (gameState.lives <= 0) {
-        gameOver();
-    }
-}
-
-function collectMemoryFragment(fragment) {
-    gameState.codes++;
-    
-    // スキル解放
-    switch (fragment.type) {
-        case 'slow':
-            player.hasSlowMotion = true;
-            break;
-        case 'warp':
-            player.hasWarp = true;
-            break;
-        case 'invisible':
-            player.hasInvisible = true;
-            break;
-    }
-    
-    // 回収エフェクト
-    createParticles(fragment.x + fragment.width / 2, fragment.y + fragment.height / 2, '#ffd93d', 15);
-}
-
-function applyGravityEffect(zone) {
-    if (zone.type === 'antiGravity') {
-        // 反重力ゾーンでは少し上に押し上げる
-        player.y -= 2;
-        if (player.y < canvas.height - 200) {
-            player.y = canvas.height - 200;
-        }
-    }
-}
-
-function activateSkill() {
-    if (player.skillCooldown > 0 || player.activeSkill) return;
-    
-    let skillType = null;
-    
-    // 利用可能なスキルの中から選択
-    if (player.hasSlowMotion) {
-        skillType = 'slow';
-    } else if (player.hasWarp) {
-        skillType = 'warp';
-    } else if (player.hasInvisible) {
-        skillType = 'invisible';
-    }
-    
-    if (!skillType) return;
-    
-    player.activeSkill = {
-        type: skillType,
-        duration: 300 // 5秒間
-    };
-    
-    player.skillCooldown = 600; // 10秒間のクールダウン
-    
-    // スキル効果の適用
-    switch (skillType) {
-        case 'slow':
-            gameState.gameSpeed *= 0.3;
-            break;
-        case 'warp':
-            // ワープ効果：プレイヤーを上に移動
-            player.y -= 50;
-            if (player.y < canvas.height - 200) {
-                player.y = canvas.height - 200;
-            }
-            break;
-        case 'invisible':
-            // 透明化は当たり判定で処理
-            break;
-    }
-    
-    // エフェクト生成
-    createParticles(player.x + player.width / 2, player.y + player.height / 2, '#ffd93d', 20);
-}
-
-function deactivateSkill() {
-    if (!player.activeSkill) return;
-    
-    switch (player.activeSkill.type) {
-        case 'slow':
-            gameState.gameSpeed = 2;
-            break;
-        case 'warp':
-            // ワープ後は元の位置に戻る
-            player.y = canvas.height - 150;
-            break;
-    }
-    
-    player.activeSkill = null;
-}
-
-function createParticles(x, y, color, count) {
-    for (let i = 0; i < count; i++) {
-        particles.push({
-            x: x,
-            y: y,
-            speedX: (Math.random() - 0.5) * 10,
-            speedY: (Math.random() - 0.5) * 10,
-            color: color,
-            life: 60,
-            maxLife: 60,
-            alpha: 1
-        });
-    }
-}
-
-function updateScore() {
-    gameState.score += gameState.gameSpeed;
-    gameState.altitude = Math.max(0, 10000 - Math.floor(gameState.score / 10));
-    
-    // 速度の増加
-    if (gameState.score % 1000 === 0) {
-        gameState.gameSpeed += 0.1;
-    }
-}
-
-function gameOver() {
-    gameState.screen = 'gameOver';
-    clearInterval(gameLoop);
-    
-    // ゲームオーバー画面を表示
-    document.getElementById('gameScreen').classList.add('hidden');
-    document.getElementById('gameOverScreen').classList.remove('hidden');
-    
-    // 最終スコア表示
-    document.getElementById('finalScore').textContent = `距離: ${Math.floor(gameState.score)}m`;
-    document.getElementById('finalCodes').textContent = `回収したコード: ${gameState.codes}`;
-    
-    // 解放したスキルの表示
-    let unlockedSkills = [];
-    if (player.hasSlowMotion) unlockedSkills.push('スローモーション');
-    if (player.hasWarp) unlockedSkills.push('ワープ');
-    if (player.hasInvisible) unlockedSkills.push('透明化');
-    
-    document.getElementById('unlockedSkills').textContent = 
-        `解放したスキル: ${unlockedSkills.length > 0 ? unlockedSkills.join(', ') : 'なし'}`;
-}
-
-function render() {
-    // キャンバスをクリア
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // 背景の描画
-    drawBackground();
-    
-    // パーティクルの描画
-    drawParticles();
-    
-    // 反重力ゾーンの描画
-    drawGravityZones();
-    
-    // 地形の描画
-    drawTerrain();
-    
-    // 障害物の描画
-    drawObstacles();
-    
-    // 記憶片の描画
-    drawMemoryFragments();
-    
-    // プレイヤーの描画
-    drawPlayer();
-}
-
-function drawBackground() {
-    // 星の描画（落下感を出すため、星も下に流れる）
-    for (let i = 0; i < 100; i++) {
-        const x = (i * 123) % canvas.width;
-        const y = ((i * 456 + gameState.score * 3) % (canvas.height + 100)) - 100;
-        const alpha = Math.sin(i + gameState.score * 0.01) * 0.5 + 0.5;
-        
-        ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.7})`;
-        ctx.fillRect(x, y, 2, 2);
-    }
-}
-
-function drawParticles() {
-    for (let particle of particles) {
-        ctx.save();
-        ctx.globalAlpha = particle.alpha;
-        ctx.fillStyle = particle.color;
-        ctx.fillRect(particle.x, particle.y, 3, 3);
-        ctx.restore();
-    }
-}
-
-function drawGravityZones() {
-    for (let zone of gravityZones) {
-        ctx.save();
-        ctx.globalAlpha = 0.3;
-        ctx.fillStyle = '#4a9eff';
-        ctx.fillRect(zone.x, zone.y, zone.width, zone.height);
-        
-        // 境界線
-        ctx.globalAlpha = 0.8;
-        ctx.strokeStyle = '#4a9eff';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(zone.x, zone.y, zone.width, zone.height);
-        ctx.restore();
-    }
-}
-
-function drawTerrain() {
-    for (let block of terrain) {
-        ctx.fillStyle = '#666666';
-        ctx.fillRect(block.x, block.y, block.width, block.height);
-        
-        // ハイライト
-        ctx.fillStyle = '#888888';
-        ctx.fillRect(block.x, block.y, block.width, 3);
-    }
-}
-
-function drawObstacles() {
-    for (let obstacle of obstacles) {
-        switch (obstacle.type) {
-            case 'static':
-                ctx.fillStyle = '#ff6b6b';
-                break;
-            case 'moving':
-                ctx.fillStyle = '#ff9f40';
-                break;
-            case 'spike':
-                ctx.fillStyle = '#ff4757';
-                break;
-        }
-        
-        ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
-        
-        // スパイクの場合、三角形を描画
-        if (obstacle.type === 'spike') {
+        // シールド効果
+        if (this.hasShield) {
+            ctx.strokeStyle = `rgba(0, 255, 255, ${0.5 + Math.sin(this.shieldFlashTime * 0.3) * 0.3})`;
+            ctx.lineWidth = 3;
             ctx.beginPath();
-            ctx.moveTo(obstacle.x + obstacle.width / 2, obstacle.y);
-            ctx.lineTo(obstacle.x, obstacle.y + obstacle.height);
-            ctx.lineTo(obstacle.x + obstacle.width, obstacle.y + obstacle.height);
+            ctx.arc(centerX, centerY, size * 0.7, 0, 2 * Math.PI);
+            ctx.stroke();
+            this.shieldFlashTime++;
+        }
+
+        // 体（黄色の楕円）
+        ctx.fillStyle = speedBoostTime > 0 ? '#FFFF00' : '#FFD700';
+        ctx.beginPath();
+        ctx.ellipse(centerX, centerY, size * 0.4, size * 0.35, 0, 0, 2 * Math.PI);
+        ctx.fill();
+
+        // 耳
+        ctx.fillStyle = speedBoostTime > 0 ? '#FFFF00' : '#FFD700';
+        ctx.beginPath();
+        ctx.moveTo(centerX - size * 0.25, centerY - size * 0.3);
+        ctx.lineTo(centerX - size * 0.15, centerY - size * 0.45);
+        ctx.lineTo(centerX - size * 0.05, centerY - size * 0.3);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(centerX + size * 0.05, centerY - size * 0.3);
+        ctx.lineTo(centerX + size * 0.15, centerY - size * 0.45);
+        ctx.lineTo(centerX + size * 0.25, centerY - size * 0.3);
+        ctx.fill();
+
+        // 耳の先端
+        ctx.fillStyle = '#000000';
+        ctx.beginPath();
+        ctx.ellipse(centerX - size * 0.15, centerY - size * 0.42, size * 0.05, size * 0.08, 0, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(centerX + size * 0.15, centerY - size * 0.42, size * 0.05, size * 0.08, 0, 0, 2 * Math.PI);
+        ctx.fill();
+
+        // 目
+        ctx.fillStyle = '#000000';
+        ctx.beginPath();
+        ctx.ellipse(centerX - size * 0.12, centerY - size * 0.1, size * 0.06, size * 0.08, 0, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(centerX + size * 0.12, centerY - size * 0.1, size * 0.06, size * 0.08, 0, 0, 2 * Math.PI);
+        ctx.fill();
+
+        // 目のハイライト
+        ctx.fillStyle = '#FFFFFF';
+        ctx.beginPath();
+        ctx.ellipse(centerX - size * 0.1, centerY - size * 0.12, size * 0.02, size * 0.03, 0, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(centerX + size * 0.14, centerY - size * 0.12, size * 0.02, size * 0.03, 0, 0, 2 * Math.PI);
+        ctx.fill();
+
+        // 鼻
+        ctx.fillStyle = '#000000';
+        ctx.beginPath();
+        ctx.ellipse(centerX, centerY, size * 0.02, size * 0.02, 0, 0, 2 * Math.PI);
+        ctx.fill();
+
+        // 口
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        if (this.expression === 'happy') {
+            ctx.arc(centerX, centerY + size * 0.05, size * 0.1, 0, Math.PI);
+        } else if (this.expression === 'worried') {
+            ctx.arc(centerX, centerY + size * 0.15, size * 0.1, Math.PI, 2 * Math.PI);
+        } else {
+            ctx.moveTo(centerX - size * 0.08, centerY + size * 0.1);
+            ctx.lineTo(centerX + size * 0.08, centerY + size * 0.1);
+        }
+        ctx.stroke();
+
+        // ほっぺ
+        ctx.fillStyle = '#FF6B6B';
+        ctx.beginPath();
+        ctx.ellipse(centerX - size * 0.25, centerY + size * 0.05, size * 0.05, size * 0.04, 0, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(centerX + size * 0.25, centerY + size * 0.05, size * 0.05, size * 0.04, 0, 0, 2 * Math.PI);
+        ctx.fill();
+    };
+
+    this.update = function() {
+        this.velocityY += GRAVITY;
+        this.y += this.velocityY;
+
+        const currentSpeed = speedBoostTime > 0 ? PLAYER_SPEED * 1.8 : PLAYER_SPEED;
+        
+        if (this.isMovingLeft) {
+            this.x -= currentSpeed;
+        }
+        if (this.isMovingRight) {
+            this.x += currentSpeed;
+        }
+
+        if (this.x < 0) this.x = 0;
+        if (this.x + this.width > GAME_WIDTH) this.x = GAME_WIDTH - this.width;
+
+        if (this.velocityY > 1.5) {
+            this.expression = 'worried';
+        } else if (this.velocityY < 0.5) {
+            this.expression = 'happy';
+        } else {
+            this.expression = 'normal';
+        }
+
+        this.hasShield = shieldTime > 0;
+
+        if (this.y + this.height > GAME_HEIGHT) {
+            this.y = GAME_HEIGHT - this.height;
+            endGame();
+        }
+    };
+}
+
+// 障害物クラス
+function Obstacle(x, y, width, height) {
+    this.x = x;
+    this.y = y;
+    this.width = width;
+    this.height = height;
+
+    this.draw = function() {
+        const gradient = ctx.createLinearGradient(this.x, this.y, this.x, this.y + this.height);
+        gradient.addColorStop(0, '#e74c3c');
+        gradient.addColorStop(1, '#c0392b');
+        
+        ctx.fillStyle = gradient;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+        
+        ctx.strokeStyle = '#a93226';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(this.x, this.y, this.width, this.height);
+    };
+
+    this.update = function() {
+        this.y -= OBSTACLE_SPEED;
+    };
+}
+
+// アイテムクラス
+function Item(x, y, type) {
+    this.x = x;
+    this.y = y;
+    this.width = ITEM_SIZE;
+    this.height = ITEM_SIZE;
+    this.type = type; // 'speed', 'shield', 'star'
+    this.bobOffset = Math.random() * Math.PI * 2;
+    this.time = 0;
+
+    this.draw = function() {
+        const centerX = this.x + this.width / 2;
+        const centerY = this.y + this.height / 2 + Math.sin(this.time * 0.1 + this.bobOffset) * 3;
+        const size = this.width;
+
+        if (this.type === 'speed') {
+            // スピードアップ（雷）
+            ctx.fillStyle = '#FFFF00';
+            ctx.strokeStyle = '#FFD700';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(centerX - size * 0.2, centerY - size * 0.3);
+            ctx.lineTo(centerX + size * 0.1, centerY - size * 0.1);
+            ctx.lineTo(centerX - size * 0.1, centerY);
+            ctx.lineTo(centerX + size * 0.2, centerY + size * 0.3);
+            ctx.lineTo(centerX - size * 0.1, centerY + size * 0.1);
+            ctx.lineTo(centerX + size * 0.1, centerY);
             ctx.closePath();
             ctx.fill();
+            ctx.stroke();
+        } else if (this.type === 'shield') {
+            // シールド
+            ctx.fillStyle = '#00FFFF';
+            ctx.strokeStyle = '#0080FF';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, size * 0.3, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.stroke();
+            
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = `${size * 0.4}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.fillText('🛡️', centerX, centerY + size * 0.1);
+        } else if (this.type === 'star') {
+            // スター
+            ctx.fillStyle = '#FFD700';
+            ctx.strokeStyle = '#FFA500';
+            ctx.lineWidth = 2;
+            this.drawStar(centerX, centerY, size * 0.3, size * 0.15, 5);
         }
+    };
+
+    this.drawStar = function(x, y, outerRadius, innerRadius, points) {
+        ctx.beginPath();
+        for (let i = 0; i < points * 2; i++) {
+            const radius = i % 2 === 0 ? outerRadius : innerRadius;
+            const angle = (i * Math.PI) / points;
+            const pointX = x + Math.cos(angle) * radius;
+            const pointY = y + Math.sin(angle) * radius;
+            if (i === 0) ctx.moveTo(pointX, pointY);
+            else ctx.lineTo(pointX, pointY);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+    };
+
+    this.update = function() {
+        this.y -= ITEM_SPEED;
+        this.time++;
+    };
+}
+
+// パーティクルクラス
+function Particle(x, y, color, size) {
+    this.x = x;
+    this.y = y;
+    this.vx = (Math.random() - 0.5) * 4;
+    this.vy = (Math.random() - 0.5) * 4;
+    this.color = color;
+    this.size = size;
+    this.life = 30;
+    this.maxLife = 30;
+
+    this.update = function() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vy += 0.1; // 重力
+        this.life--;
+    };
+
+    this.draw = function() {
+        const alpha = this.life / this.maxLife;
+        ctx.fillStyle = this.color.replace('1)', `${alpha})`);
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, 2 * Math.PI);
+        ctx.fill();
+    };
+}
+
+// パーティクル生成
+function createParticles(x, y, color, count = 5) {
+    for (let i = 0; i < count; i++) {
+        particles.push(new Particle(x, y, color, Math.random() * 3 + 1));
     }
 }
 
-function drawMemoryFragments() {
-    for (let fragment of memoryFragments) {
-        ctx.save();
-        ctx.translate(fragment.x + fragment.width / 2, fragment.y + fragment.height / 2);
-        ctx.rotate(fragment.rotation);
-        
-        // タイプに応じた色
-        switch (fragment.type) {
-            case 'slow':
-                ctx.fillStyle = '#4a9eff';
-                break;
-            case 'warp':
-                ctx.fillStyle = '#6bcf7f';
-                break;
-            case 'invisible':
-                ctx.fillStyle = '#ffd93d';
-                break;
-        }
-        
-        ctx.fillRect(-fragment.width / 2, -fragment.height / 2, fragment.width, fragment.height);
-        
-        // 光るエフェクト
-        ctx.shadowBlur = 20;
-        ctx.shadowColor = ctx.fillStyle;
-        ctx.fillRect(-fragment.width / 2, -fragment.height / 2, fragment.width, fragment.height);
-        
-        ctx.restore();
+// ゲーム初期化
+function initGame() {
+    GRAVITY = 0.008;
+    OBSTACLE_SPEED = 0.2;
+    OBSTACLE_SPAWN_INTERVAL = 1200;
+    lastDifficultyScore = -1;
+    
+    player = new Player();
+    obstacles = [];
+    items = [];
+    particles = [];
+    score = 0;
+    gameOver = false;
+    
+    speedBoostTime = 0;
+    shieldTime = 0;
+    starCount = 0;
+    
+    updateDisplays();
+    
+    gameOverOverlay.style.display = 'none';
+    startScreen.style.display = 'none';
+    
+    if (gameLoopId) {
+        cancelAnimationFrame(gameLoopId);
     }
+    gameLoopId = requestAnimationFrame(gameLoop);
 }
 
-function drawPlayer() {
-    ctx.save();
-    
-    // 無敵時間中の点滅
-    if (player.invulnerable && Math.floor(player.invulnerableTime / 10) % 2 === 0) {
-        ctx.globalAlpha = 0.5;
-    }
-    
-    // 透明化スキル中の透明度
-    if (player.activeSkill && player.activeSkill.type === 'invisible') {
-        ctx.globalAlpha = 0.3;
-    }
-    
-    // プレイヤーの描画
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(player.x, player.y, player.width, player.height);
-    
-    // 光るエフェクト
-    ctx.shadowBlur = 15;
-    ctx.shadowColor = '#ffffff';
-    ctx.fillRect(player.x, player.y, player.width, player.height);
-    
-    ctx.restore();
+// 表示更新
+function updateDisplays() {
+    scoreDisplay.textContent = score;
+    highScoreDisplay.textContent = highScore;
+    speedBoostTimeDisplay.textContent = Math.ceil(speedBoostTime / 60);
+    shieldTimeDisplay.textContent = Math.ceil(shieldTime / 60);
+    starCountDisplay.textContent = starCount;
 }
 
-function updateUI() {
-    document.getElementById('score').textContent = `距離: ${Math.floor(gameState.score)}m`;
-    document.getElementById('codes').textContent = `コード: ${gameState.codes}`;
-    document.getElementById('altitude').textContent = `高度: ${gameState.altitude}m`;
-    
-    // スキル表示
-    let skillText = 'スキル: ';
-    if (player.activeSkill) {
-        switch (player.activeSkill.type) {
-            case 'slow':
-                skillText += 'スローモーション';
-                break;
-            case 'warp':
-                skillText += 'ワープ';
-                break;
-            case 'invisible':
-                skillText += '透明化';
-                break;
-        }
-    } else if (player.skillCooldown > 0) {
-        skillText += `待機中(${Math.ceil(player.skillCooldown / 60)}s)`;
+// 障害物生成
+function spawnObstacle() {
+    const gapWidth = player.width * 2.5;
+    const gapX = Math.random() * (GAME_WIDTH - gapWidth);
+
+    if (gapX > 0) {
+        obstacles.push(new Obstacle(0, GAME_HEIGHT, gapX, OBSTACLE_HEIGHT));
+    }
+    if (gapX + gapWidth < GAME_WIDTH) {
+        obstacles.push(new Obstacle(gapX + gapWidth, GAME_HEIGHT, GAME_WIDTH - (gapX + gapWidth), OBSTACLE_HEIGHT));
+    }
+}
+// --- 前のコードからの続き ---
+
+// アイテム生成
+function spawnItem() {
+    const types = ['slow', 'shield', 'star']; // スピードアップ→スローダウンに変更
+    const type = types[Math.floor(Math.random() * types.length)];
+    const x = Math.random() * (GAME_WIDTH - ITEM_SIZE);
+    const y = GAME_HEIGHT;
+    items.push(new Item(x, y, type));
+}
+
+// 当たり判定
+function checkCollision(a, b) {
+    return (
+        a.x < b.x + b.width &&
+        a.x + a.width > b.x &&
+        a.y < b.y + b.height &&
+        a.y + a.height > b.y
+    );
+}
+
+// ゲームオーバー処理
+function endGame() {
+    if (gameOver) return;
+    gameOver = true;
+    cancelAnimationFrame(gameLoopId);
+    playGameOverSound();
+    finalScoreDisplay.textContent = score;
+    if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('highScore', highScore);
+        newHighScoreDisplay.style.display = 'block';
     } else {
-        let availableSkills = [];
-        if (player.hasSlowMotion) availableSkills.push('スロー');
-        if (player.hasWarp) availableSkills.push('ワープ');
-        if (player.hasInvisible) availableSkills.push('透明');
-        
-        skillText += availableSkills.length > 0 ? availableSkills.join('/') : 'なし';
+        newHighScoreDisplay.style.display = 'none';
     }
-    
-    document.getElementById('skillDisplay').textContent = skillText;
+    gameOverOverlay.style.display = 'flex';
 }
+
+// ゲームループ
+function gameLoop(timestamp) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const now = Date.now();
+
+    if (score - lastDifficultyScore >= 30) {
+        GRAVITY += 0.001;
+        OBSTACLE_SPEED += 0.02;
+        if (OBSTACLE_SPAWN_INTERVAL > 500) OBSTACLE_SPAWN_INTERVAL -= 50;
+        lastDifficultyScore = score;
+    }
+
+    GRAVITY = OBSTACLE_SPEED * 0.04;
+
+    player.update();
+    player.draw();
+
+    obstacles.forEach(o => o.update());
+    obstacles = obstacles.filter(o => o.y + o.height > 0);
+    obstacles.forEach(o => o.draw());
+
+    items.forEach(i => i.update());
+    items = items.filter(i => i.y + i.height > 0);
+    items.forEach(i => i.draw());
+
+    particles.forEach(p => p.update());
+    particles = particles.filter(p => p.life > 0);
+    particles.forEach(p => p.draw());
+
+    for (let o of obstacles) {
+        if (checkCollision(player, o)) {
+            if (shieldTime > 0) {
+                playHitSound();
+                createParticles(player.x + player.width / 2, player.y + player.height / 2, 'rgba(0,255,255,1)', 8);
+                shieldTime = 0;
+                break;
+            } else {
+                endGame();
+                return;
+            }
+        }
+    }
+
+    for (let i = 0; i < items.length; i++) {
+        if (checkCollision(player, items[i])) {
+            const item = items.splice(i, 1)[0];
+            playItemSound();
+            if (item.type === 'slow') {
+                speedBoostTime = 300;
+                createParticles(item.x, item.y, 'rgba(173,216,230,1)', 12); // 羽＝淡い青
+            } else if (item.type === 'shield') {
+                shieldTime = 300;
+                createParticles(item.x, item.y, 'rgba(0,255,255,1)', 12);
+            } else if (item.type === 'star') {
+                starCount++;
+                score += 5;
+                createParticles(item.x, item.y, 'rgba(255,215,0,1)', 12);
+            }
+            break;
+        }
+    }
+
+    if (speedBoostTime > 0) speedBoostTime--;
+    if (shieldTime > 0) shieldTime--;
+
+    score++;
+    updateDisplays();
+
+    if (now - lastObstacleSpawnTime > OBSTACLE_SPAWN_INTERVAL) {
+        spawnObstacle();
+        lastObstacleSpawnTime = now;
+    }
+
+    if (now - lastItemSpawnTime > 2000) {
+        spawnItem();
+        lastItemSpawnTime = now;
+    }
+
+    gameLoopId = requestAnimationFrame(gameLoop);
+}
+
+function spawnObstacle() {
+    const gapWidth = GAME_WIDTH * 0.75;
+    const gapX = Math.random() * (GAME_WIDTH - gapWidth);
+
+    if (gapX > 0) {
+        obstacles.push(new Obstacle(0, GAME_HEIGHT, gapX, OBSTACLE_HEIGHT));
+    }
+    if (gapX + gapWidth < GAME_WIDTH) {
+        obstacles.push(new Obstacle(gapX + gapWidth, GAME_HEIGHT, GAME_WIDTH - (gapX + gapWidth), OBSTACLE_HEIGHT));
+    }
+}
+
+startButton.addEventListener('click', () => {
+    gameStarted = true;
+    resizeCanvas();
+    initGame();
+});
+
+restartButton.addEventListener('click', () => {
+    initGame();
+});
+
+leftButton.addEventListener('touchstart', () => player.isMovingLeft = true);
+leftButton.addEventListener('touchend', () => player.isMovingLeft = false);
+rightButton.addEventListener('touchstart', () => player.isMovingRight = true);
+rightButton.addEventListener('touchend', () => player.isMovingRight = false);
+
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft') player.isMovingLeft = true;
+    if (e.key === 'ArrowRight') player.isMovingRight = true;
+    if (e.key === 'ArrowUp') player.velocityY -= 0.5;
+});
+
+window.addEventListener('keyup', (e) => {
+    if (e.key === 'ArrowLeft') player.isMovingLeft = false;
+    if (e.key === 'ArrowRight') player.isMovingRight = false;
+});
