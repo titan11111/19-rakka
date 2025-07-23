@@ -3,49 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SKY BREAK：墜天ノ契約</title>
+    <title>ヒヤヒヤ落下ゲーム</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="gameContainer">
-        <div id="titleScreen" class="screen">
-            <h1>SKY BREAK</h1>
-            <h2>墜天ノ契約</h2>
-            <div class="story">
-                <p>空に浮かぶ塔から、何かに導かれるように落下する主人公。</p>
-                <p>記憶片に触れ、コードを解放せよ。</p>
+    <div class="game-container">
+        <div class="game-info">
+            <div class="score-panel">
+                <div>スコア: <span id="score">0</span></div>
+                <div>ハイスコア: <span id="highScore">0</span></div>
             </div>
-            <button id="startBtn" class="game-btn">開始</button>
-            <div class="controls">
-                <p>操作：左右キー or タッチで移動</p>
-                <p>スペースキー or タップでスキル発動</p>
+            <div class="power-ups">
+                <div class="power-up-item">
+                    <span class="power-icon">⚡</span>
+                    <span id="speedBoostTime">0</span>s
+                </div>
+                <div class="power-up-item">
+                    <span class="power-icon">🛡️</span>
+                    <span id="shieldTime">0</span>s
+                </div>
+                <div class="power-up-item">
+                    <span class="power-icon">🌟</span>
+                    <span id="starCount">0</span>
+                </div>
             </div>
         </div>
-
-        <div id="gameScreen" class="screen hidden">
-            <div id="gameUI">
-                <div id="score">距離: 0m</div>
-                <div id="codes">コード: 0</div>
-                <div id="skillDisplay">スキル: なし</div>
-                <div id="altitude">高度: 10000m</div>
-            </div>
+        <div style="position: relative;">
             <canvas id="gameCanvas"></canvas>
-            <div id="touchControls">
-                <button id="leftBtn" class="touch-btn">←</button>
-                <button id="skillBtn" class="touch-btn skill">スキル</button>
-                <button id="rightBtn" class="touch-btn">→</button>
+            <div id="gameOverOverlay" class="game-over-overlay hidden" style="display: none;">
+                <h2>ゲームオーバー！</h2>
+                <p>最終スコア: <span id="finalScore">0</span></p>
+                <p id="newHighScore" style="display: none;">🎉 新記録達成！ 🎉</p>
+                <button id="restartButton">もう一度プレイ</button>
+            </div>
+            <div id="startScreen" class="start-screen">
+                <h1>ヒヤヒヤ落下ゲーム</h1>
+                <p>障害物を避けてアイテムを集めよう！</p>
+                <div class="instructions">
+                    <p>⚡ スピードアップ - 素早く移動</p>
+                    <p>🛡️ シールド - 障害物を1回防ぐ</p>
+                    <p>🌟 スター - ボーナスポイント</p>
+                </div>
+                <button id="startButton">ゲーム開始</button>
             </div>
         </div>
-
-        <div id="gameOverScreen" class="screen hidden">
-            <h2>墜落完了</h2>
-            <div id="finalScore">距離: 0m</div>
-            <div id="finalCodes">回収したコード: 0</div>
-            <div id="unlockedSkills">解放したスキル: なし</div>
-            <button id="restartBtn" class="game-btn">再挑戦</button>
+        <div class="controls">
+            <button id="leftButton" class="control-button">←</button>
+            <button id="rightButton" class="control-button">→</button>
         </div>
     </div>
-
     <script src="script.js"></script>
 </body>
 </html>
