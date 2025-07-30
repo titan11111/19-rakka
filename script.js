@@ -32,7 +32,8 @@ let gameLoopId;
 // ゲーム設定
 const GAME_WIDTH = 300;
 const GAME_HEIGHT = 400;
-const PLAYER_SIZE = 25;
+// プレイヤーサイズを1.5倍に拡大
+const PLAYER_SIZE = 37.5;
 const PLAYER_SPEED = 4;
 let GRAVITY = 0.008;
 const OBSTACLE_HEIGHT = 15;
@@ -184,6 +185,10 @@ function Player() {
             ctx.arc(centerX, centerY + size * 0.05, size * 0.1, 0, Math.PI);
         } else if (this.expression === 'worried') {
             ctx.arc(centerX, centerY + size * 0.15, size * 0.1, Math.PI, 2 * Math.PI);
+        } else if (this.expression === 'excited') {
+            ctx.arc(centerX, centerY + size * 0.05, size * 0.15, 0, Math.PI);
+        } else if (this.expression === 'surprised') {
+            ctx.arc(centerX, centerY + size * 0.1, size * 0.1, 0, 2 * Math.PI);
         } else {
             ctx.moveTo(centerX - size * 0.08, centerY + size * 0.1);
             ctx.lineTo(centerX + size * 0.08, centerY + size * 0.1);
@@ -216,7 +221,11 @@ function Player() {
         if (this.x < 0) this.x = 0;
         if (this.x + this.width > GAME_WIDTH) this.x = GAME_WIDTH - this.width;
 
-        if (this.velocityY > 1.5) {
+        if (speedBoostTime > 0) {
+            this.expression = 'excited';
+        } else if (this.velocityY > 2) {
+            this.expression = 'surprised';
+        } else if (this.velocityY > 1.5) {
             this.expression = 'worried';
         } else if (this.velocityY < 0.5) {
             this.expression = 'happy';
