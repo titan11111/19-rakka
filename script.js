@@ -11,6 +11,7 @@ const startButton = document.getElementById('startButton');
 const startScreen = document.getElementById('startScreen');
 const leftButton = document.getElementById('leftButton');
 const rightButton = document.getElementById('rightButton');
+const upButton = document.getElementById('upButton');
 
 // パワーアップ表示要素
 const speedBoostTimeDisplay = document.getElementById('speedBoostTime');
@@ -561,6 +562,13 @@ leftButton.addEventListener('touchstart', () => player.isMovingLeft = true);
 leftButton.addEventListener('touchend', () => player.isMovingLeft = false);
 rightButton.addEventListener('touchstart', () => player.isMovingRight = true);
 rightButton.addEventListener('touchend', () => player.isMovingRight = false);
+let upInterval;
+upButton.addEventListener('touchstart', () => {
+    upInterval = setInterval(() => {
+        player.velocityY -= 0.5;
+    }, 100);
+});
+upButton.addEventListener('touchend', () => clearInterval(upInterval));
 
 window.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowLeft') player.isMovingLeft = true;
