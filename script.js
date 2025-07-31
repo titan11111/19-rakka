@@ -413,20 +413,6 @@ function updateDisplays() {
     starCountDisplay.textContent = starCount;
 }
 
-// 障害物生成
-function spawnObstacle() {
-    const gapWidth = player.width * 2.5;
-    const gapX = Math.random() * (GAME_WIDTH - gapWidth);
-
-    if (gapX > 0) {
-        obstacles.push(new Obstacle(0, GAME_HEIGHT, gapX, OBSTACLE_HEIGHT));
-    }
-    if (gapX + gapWidth < GAME_WIDTH) {
-        obstacles.push(new Obstacle(gapX + gapWidth, GAME_HEIGHT, GAME_WIDTH - (gapX + gapWidth), OBSTACLE_HEIGHT));
-    }
-}
-// --- 前のコードからの続き ---
-
 // アイテム生成
 function spawnItem() {
     const types = ['slow', 'shield', 'star']; // スピードアップ→スローダウンに変更
@@ -546,14 +532,29 @@ function gameLoop(timestamp) {
 }
 
 function spawnObstacle() {
-    const gapWidth = GAME_WIDTH * 0.75;
+    const difficulty = Math.floor(score / 100);
+
+    const baseGapWidth = GAME_WIDTH * 0.75;
+    const gapWidth = Math.max(baseGapWidth - difficulty * 15, PLAYER_SIZE * 2);
     const gapX = Math.random() * (GAME_WIDTH - gapWidth);
 
     if (gapX > 0) {
         obstacles.push(new Obstacle(0, GAME_HEIGHT, gapX, OBSTACLE_HEIGHT));
     }
     if (gapX + gapWidth < GAME_WIDTH) {
-        obstacles.push(new Obstacle(gapX + gapWidth, GAME_HEIGHT, GAME_WIDTH - (gapX + gapWidth), OBSTACLE_HEIGHT));
+        obstacles.push(new Obstacle(
+            gapX + gapWidth,
+            GAME_HEIGHT,
+            GAME_WIDTH - (gapX + gapWidth),
+            OBSTACLE_HEIGHT
+        ));
+    }
+
+    for (let i = 0; i < difficulty; i++) {
+        const blockWidth = PLAYER_SIZE;
+        const blockX = gapX + Math.random() * (gapWidth - blockWidth);
+        const blockY = GAME_HEIGHT + i * (OBSTACLE_HEIGHT + 5);
+        obstacles.push(new Obstacle(blockX, blockY, blockWidth, OBSTACLE_HEIGHT));
     }
 }
 
