@@ -41,6 +41,7 @@ let OBSTACLE_SPEED = 0.2;
 let OBSTACLE_SPAWN_INTERVAL = 1200;
 const ITEM_SIZE = 20;
 const ITEM_SPEED = 0.15;
+const MIN_OBSTACLE_GAP = 80;
 
 let lastObstacleSpawnTime = 0;
 let lastItemSpawnTime = 0;
@@ -243,27 +244,54 @@ function Player() {
 }
 
 // 障害物クラス
-function Obstacle(x, y, width, height) {
+function Obstacle(x, y, width, height, type = 'pillar') {
     this.x = x;
     this.y = y;
     this.width = width;
     this.height = height;
+    this.type = type;
+    this.vx = 0;
+    this.minX = 0;
+    this.maxX = GAME_WIDTH - width;
+    this.bobOffset = Math.random() * Math.PI * 2;
 
     this.draw = function() {
-        const gradient = ctx.createLinearGradient(this.x, this.y, this.x, this.y + this.height);
-        gradient.addColorStop(0, '#e74c3c');
-        gradient.addColorStop(1, '#c0392b');
-        
-        ctx.fillStyle = gradient;
-        ctx.fillRect(this.x, this.y, this.width, this.height);
-        
-        ctx.strokeStyle = '#a93226';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(this.x, this.y, this.width, this.height);
+        if (this.type === 'pillar') {
+            const gradient = ctx.createLinearGradient(this.x, this.y, this.x, this.y + this.height);
+            gradient.addColorStop(0, '#e74c3c');
+            gradient.addColorStop(1, '#c0392b');
+
+            ctx.fillStyle = gradient;
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+
+            ctx.strokeStyle = '#a93226';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(this.x, this.y, this.width, this.height);
+        } else {
+            ctx.font = `${this.height}px serif`;
+            ctx.textBaseline = 'top';
+            const emojiMap = {
+                cloud: '☁️',
+                crow: '🐦‍⬛',
+                helicopter: '🚁',
+                ufo: '🛸'
+            };
+            ctx.fillText(emojiMap[this.type] || '⬛', this.x, this.y);
+        }
     };
 
     this.update = function() {
         this.y -= OBSTACLE_SPEED;
+        if (this.type !== 'pillar') {
+            this.x += this.vx;
+            if (this.x < this.minX || this.x + this.width > this.maxX) {
+                this.vx *= -1;
+                this.x += this.vx;
+            }
+            if (this.type === 'ufo') {
+                this.y += Math.sin((Date.now() / 200) + this.bobOffset) * 0.5;
+            }
+        }
     };
 }
 
@@ -422,6 +450,12 @@ function spawnItem() {
     items.push(new Item(x, y, type));
 }
 
+function canSpawnObstacle() {
+    if (obstacles.length === 0) return true;
+    const maxY = Math.max(...obstacles.map(o => o.y + o.height));
+    return maxY < GAME_HEIGHT - MIN_OBSTACLE_GAP;
+}
+
 // 当たり判定
 function checkCollision(a, b) {
     return (
@@ -518,7 +552,7 @@ function gameLoop(timestamp) {
     score++;
     updateDisplays();
 
-    if (now - lastObstacleSpawnTime > OBSTACLE_SPAWN_INTERVAL) {
+    if (now - lastObstacleSpawnTime > OBSTACLE_SPAWN_INTERVAL && canSpawnObstacle()) {
         spawnObstacle();
         lastObstacleSpawnTime = now;
     }
@@ -538,23 +572,45 @@ function spawnObstacle() {
     const gapWidth = Math.max(baseGapWidth - difficulty * 15, PLAYER_SIZE * 2);
     const gapX = Math.random() * (GAME_WIDTH - gapWidth);
 
+    const safeLaneWidth = PLAYER_SIZE * 1.5;
+    const safeLaneX = gapX + Math.random() * (gapWidth - safeLaneWidth);
+
     if (gapX > 0) {
-        obstacles.push(new Obstacle(0, GAME_HEIGHT, gapX, OBSTACLE_HEIGHT));
+        obstacles.push(new Obstacle(0, GAME_HEIGHT, gapX, OBSTACLE_HEIGHT, 'pillar'));
     }
     if (gapX + gapWidth < GAME_WIDTH) {
         obstacles.push(new Obstacle(
             gapX + gapWidth,
             GAME_HEIGHT,
             GAME_WIDTH - (gapX + gapWidth),
-            OBSTACLE_HEIGHT
+            OBSTACLE_HEIGHT,
+            'pillar'
         ));
     }
 
+    const dynamicTypes = ['cloud', 'crow', 'helicopter', 'ufo'];
     for (let i = 0; i < difficulty; i++) {
-        const blockWidth = PLAYER_SIZE;
-        const blockX = gapX + Math.random() * (gapWidth - blockWidth);
+        const type = dynamicTypes[Math.floor(Math.random() * dynamicTypes.length)];
+        const size = type === 'cloud' ? 50 : 40;
+        const blockWidth = size;
+        const blockHeight = size;
+        const side = Math.random() < 0.5 ? 'left' : 'right';
+        let minX, maxX;
+        if (side === 'left') {
+            minX = gapX;
+            maxX = safeLaneX - blockWidth;
+        } else {
+            minX = safeLaneX + safeLaneWidth;
+            maxX = gapX + gapWidth - blockWidth;
+        }
+        if (maxX <= minX) continue;
+        const blockX = Math.random() * (maxX - minX) + minX;
         const blockY = GAME_HEIGHT + i * (OBSTACLE_HEIGHT + 5);
-        obstacles.push(new Obstacle(blockX, blockY, blockWidth, OBSTACLE_HEIGHT));
+        const obstacle = new Obstacle(blockX, blockY, blockWidth, blockHeight, type);
+        obstacle.minX = minX;
+        obstacle.maxX = maxX;
+        obstacle.vx = (Math.random() * 0.6 + 0.2) * (Math.random() < 0.5 ? -1 : 1);
+        obstacles.push(obstacle);
     }
 }
 
