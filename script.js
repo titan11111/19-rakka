@@ -255,16 +255,28 @@ function Obstacle(x, y, width, height, type = 'pillar') {
     this.maxX = GAME_WIDTH - width;
     this.bobOffset = Math.random() * Math.PI * 2;
 
+    if (this.type === 'pillar') {
+        const colorSets = [
+            ['#e74c3c', '#c0392b'],
+            ['#3498db', '#2980b9'],
+            ['#2ecc71', '#27ae60'],
+            ['#9b59b6', '#8e44ad'],
+            ['#f1c40f', '#f39c12']
+        ];
+        this.colors = colorSets[Math.floor(Math.random() * colorSets.length)];
+    }
+
     this.draw = function() {
         if (this.type === 'pillar') {
             const gradient = ctx.createLinearGradient(this.x, this.y, this.x, this.y + this.height);
-            gradient.addColorStop(0, '#e74c3c');
-            gradient.addColorStop(1, '#c0392b');
+            const [c1, c2] = this.colors;
+            gradient.addColorStop(0, c1);
+            gradient.addColorStop(1, c2);
 
             ctx.fillStyle = gradient;
             ctx.fillRect(this.x, this.y, this.width, this.height);
 
-            ctx.strokeStyle = '#a93226';
+            ctx.strokeStyle = c2;
             ctx.lineWidth = 2;
             ctx.strokeRect(this.x, this.y, this.width, this.height);
         } else {
@@ -568,7 +580,7 @@ function gameLoop(timestamp) {
 function spawnObstacle() {
     const difficulty = Math.floor(score / 100);
 
-    const baseGapWidth = GAME_WIDTH * 0.75;
+    const baseGapWidth = GAME_WIDTH * 0.8;
     const gapWidth = Math.max(baseGapWidth - difficulty * 15, PLAYER_SIZE * 2);
     const gapX = Math.random() * (GAME_WIDTH - gapWidth);
 
@@ -591,7 +603,7 @@ function spawnObstacle() {
     const dynamicTypes = ['cloud', 'crow', 'helicopter', 'ufo'];
     for (let i = 0; i < difficulty; i++) {
         const type = dynamicTypes[Math.floor(Math.random() * dynamicTypes.length)];
-        const size = type === 'cloud' ? 50 : 40;
+        const size = type === 'cloud' ? 40 : 30;
         const blockWidth = size;
         const blockHeight = size;
         const side = Math.random() < 0.5 ? 'left' : 'right';
