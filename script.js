@@ -466,12 +466,26 @@ function canSpawnObstacle() {
 
 // 当たり判定
 function checkCollision(a, b) {
-    return (
-        a.x < b.x + b.width &&
-        a.x + a.width > b.x &&
-        a.y < b.y + b.height &&
-        a.y + a.height > b.y
-    );
+    // 柔軟な当たり判定: 柱は矩形判定、それ以外は円判定を使用
+    if (b.type === 'pillar') {
+        const margin = 2; // 見た目より少し小さくして誤判定を減らす
+        return (
+            a.x + margin < b.x + b.width &&
+            a.x + a.width - margin > b.x &&
+            a.y + margin < b.y + b.height &&
+            a.y + a.height - margin > b.y
+        );
+    } else {
+        const ax = a.x + a.width / 2;
+        const ay = a.y + a.height / 2;
+        const bx = b.x + b.width / 2;
+        const by = b.y + b.height / 2;
+        const ar = Math.min(a.width, a.height) * 0.4;
+        const br = Math.min(b.width, b.height) * 0.4;
+        const dx = ax - bx;
+        const dy = ay - by;
+        return dx * dx + dy * dy < (ar + br) * (ar + br);
+    }
 }
 
 // ゲームオーバー処理
@@ -521,13 +535,15 @@ function gameLoop(timestamp) {
     particles = particles.filter(p => p.life > 0);
     particles.forEach(p => p.draw());
 
-    for (let o of obstacles) {
+    for (let i = 0; i < obstacles.length; i++) {
+        const o = obstacles[i];
         if (checkCollision(player, o)) {
             if (shieldTime > 0) {
                 playHitSound();
-                createParticles(player.x + player.width / 2, player.y + player.height / 2, 'rgba(0,255,255,1)', 8);
-                shieldTime = 0;
-                break;
+                createParticles(o.x + o.width / 2, o.y + o.height / 2, 'rgba(0,255,255,1)', 8);
+                obstacles.splice(i, 1); // バリアで敵を倒す
+                i--;
+                continue;
             } else {
                 endGame();
                 return;
