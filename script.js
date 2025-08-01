@@ -599,7 +599,7 @@ function gameLoop(timestamp) {
                 speedBoostTime = 300;
                 createParticles(item.x, item.y, 'rgba(173,216,230,1)', 12); // 羽＝淡い青
             } else if (item.type === 'shield') {
-                shieldTime = 300;
+                shieldTime = 1200;
                 createParticles(item.x, item.y, 'rgba(0,255,255,1)', 12);
             } else if (item.type === 'star') {
                 starCount++;
