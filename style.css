@@ -188,16 +188,17 @@ canvas {
 .control-button {
     background: linear-gradient(45deg, #3182ce, #2c5aa0);
     color: white;
-    padding: 20px 35px;
+    padding: 22px 38.5px;
     border: none;
     border-radius: 50%;
-    font-size: 1.8rem;
+    font-size: 1.98rem;
     cursor: pointer;
     transition: all 0.2s ease;
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
     user-select: none;
-    width: 70px;
-    height: 70px;
+    touch-action: none;
+    width: 77px;
+    height: 77px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -246,10 +247,10 @@ canvas {
     }
     
     .control-button {
-        width: 60px;
-        height: 60px;
-        font-size: 1.5rem;
-        padding: 15px;
+        width: 66px;
+        height: 66px;
+        font-size: 1.65rem;
+        padding: 16.5px;
     }
     
     .start-screen h1 {

@@ -636,25 +636,69 @@ restartButton.addEventListener('click', () => {
     initGame();
 });
 
-leftButton.addEventListener('touchstart', () => player.isMovingLeft = true);
-leftButton.addEventListener('touchend', () => player.isMovingLeft = false);
-rightButton.addEventListener('touchstart', () => player.isMovingRight = true);
-rightButton.addEventListener('touchend', () => player.isMovingRight = false);
+function handleLeftStart(e) {
+    e.preventDefault();
+    player.isMovingLeft = true;
+}
+function handleLeftEnd(e) {
+    e.preventDefault();
+    player.isMovingLeft = false;
+}
+leftButton.addEventListener('touchstart', handleLeftStart);
+leftButton.addEventListener('mousedown', handleLeftStart);
+leftButton.addEventListener('touchend', handleLeftEnd);
+leftButton.addEventListener('mouseup', handleLeftEnd);
+leftButton.addEventListener('mouseleave', handleLeftEnd);
+
+function handleRightStart(e) {
+    e.preventDefault();
+    player.isMovingRight = true;
+}
+function handleRightEnd(e) {
+    e.preventDefault();
+    player.isMovingRight = false;
+}
+rightButton.addEventListener('touchstart', handleRightStart);
+rightButton.addEventListener('mousedown', handleRightStart);
+rightButton.addEventListener('touchend', handleRightEnd);
+rightButton.addEventListener('mouseup', handleRightEnd);
+rightButton.addEventListener('mouseleave', handleRightEnd);
+
 let upInterval;
-upButton.addEventListener('touchstart', () => {
+function startJump(e) {
+    e.preventDefault();
     upInterval = setInterval(() => {
         player.velocityY -= 0.5;
     }, 100);
-});
-upButton.addEventListener('touchend', () => clearInterval(upInterval));
+}
+function endJump(e) {
+    e.preventDefault();
+    clearInterval(upInterval);
+}
+upButton.addEventListener('touchstart', startJump);
+upButton.addEventListener('mousedown', startJump);
+upButton.addEventListener('touchend', endJump);
+upButton.addEventListener('mouseup', endJump);
+upButton.addEventListener('mouseleave', endJump);
 
 window.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowLeft') player.isMovingLeft = true;
-    if (e.key === 'ArrowRight') player.isMovingRight = true;
-    if (e.key === 'ArrowUp') player.velocityY -= 0.5;
+    const key = e.key;
+    if (['ArrowLeft', 'Left', '←'].includes(key)) {
+        e.preventDefault();
+        player.isMovingLeft = true;
+    }
+    if (['ArrowRight', 'Right', '→'].includes(key)) {
+        e.preventDefault();
+        player.isMovingRight = true;
+    }
+    if (['ArrowUp', 'Up', '↑'].includes(key)) {
+        e.preventDefault();
+        player.velocityY -= 0.5;
+    }
 });
 
 window.addEventListener('keyup', (e) => {
-    if (e.key === 'ArrowLeft') player.isMovingLeft = false;
-    if (e.key === 'ArrowRight') player.isMovingRight = false;
+    const key = e.key;
+    if (['ArrowLeft', 'Left', '←'].includes(key)) player.isMovingLeft = false;
+    if (['ArrowRight', 'Right', '→'].includes(key)) player.isMovingRight = false;
 });
