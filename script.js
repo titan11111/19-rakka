@@ -43,6 +43,10 @@ const ITEM_SIZE = 20;
 const ITEM_SPEED = 0.15;
 const MIN_OBSTACLE_GAP = 80;
 
+// 敵のSVG画像
+const enemyImage = new Image();
+enemyImage.src = 'enemy.svg';
+
 let lastObstacleSpawnTime = 0;
 let lastItemSpawnTime = 0;
 let lastDifficultyScore = -1;
@@ -280,15 +284,7 @@ function Obstacle(x, y, width, height, type = 'pillar') {
             ctx.lineWidth = 2;
             ctx.strokeRect(this.x, this.y, this.width, this.height);
         } else {
-            ctx.font = `${this.height}px serif`;
-            ctx.textBaseline = 'top';
-            const emojiMap = {
-                cloud: '☁️',
-                crow: '🐦‍⬛',
-                helicopter: '🚁',
-                ufo: '🛸'
-            };
-            ctx.fillText(emojiMap[this.type] || '⬛', this.x, this.y);
+            ctx.drawImage(enemyImage, this.x, this.y, this.width, this.height);
         }
     };
 
@@ -601,7 +597,8 @@ function spawnObstacle() {
     }
 
     const dynamicTypes = ['cloud', 'crow', 'helicopter', 'ufo'];
-    for (let i = 0; i < difficulty; i++) {
+    const enemyCount = Math.max(0, difficulty - 1);
+    for (let i = 0; i < enemyCount; i++) {
         const type = dynamicTypes[Math.floor(Math.random() * dynamicTypes.length)];
         const size = type === 'cloud' ? 40 : 30;
         const blockWidth = size;
