@@ -43,9 +43,6 @@ const ITEM_SIZE = 20;
 const ITEM_SPEED = 0.15;
 const MIN_OBSTACLE_GAP = 80;
 
-// 敵のSVG画像
-const enemyImage = new Image();
-enemyImage.src = 'enemy.svg';
 
 let lastObstacleSpawnTime = 0;
 let lastItemSpawnTime = 0;
@@ -283,8 +280,49 @@ function Obstacle(x, y, width, height, type = 'pillar') {
             ctx.strokeStyle = c2;
             ctx.lineWidth = 2;
             ctx.strokeRect(this.x, this.y, this.width, this.height);
-        } else {
-            ctx.drawImage(enemyImage, this.x, this.y, this.width, this.height);
+        } else if (this.type === 'cloud') {
+            ctx.fillStyle = '#FFFFFF';
+            ctx.beginPath();
+            const cx = this.x + this.width / 2;
+            const cy = this.y + this.height / 2;
+            ctx.arc(cx - this.width * 0.2, cy, this.width * 0.3, Math.PI * 0.5, Math.PI * 1.5);
+            ctx.arc(cx, cy - this.height * 0.2, this.width * 0.35, Math.PI, 0);
+            ctx.arc(cx + this.width * 0.2, cy, this.width * 0.3, Math.PI * 1.5, Math.PI * 0.5);
+            ctx.closePath();
+            ctx.fill();
+        } else if (this.type === 'crow') {
+            ctx.fillStyle = '#000000';
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y + this.height * 0.5);
+            ctx.lineTo(this.x + this.width * 0.5, this.y);
+            ctx.lineTo(this.x + this.width, this.y + this.height * 0.5);
+            ctx.lineTo(this.x + this.width * 0.5, this.y + this.height);
+            ctx.closePath();
+            ctx.fill();
+        } else if (this.type === 'helicopter') {
+            ctx.fillStyle = '#666666';
+            ctx.fillRect(this.x + this.width * 0.2, this.y + this.height * 0.4, this.width * 0.6, this.height * 0.3);
+            ctx.fillRect(this.x + this.width * 0.8, this.y + this.height * 0.45, this.width * 0.2, this.height * 0.1);
+            ctx.fillRect(this.x, this.y + this.height * 0.3, this.width, this.height * 0.05);
+        } else if (this.type === 'ufo') {
+            ctx.fillStyle = '#AAAAAA';
+            ctx.beginPath();
+            ctx.ellipse(this.x + this.width / 2, this.y + this.height / 2, this.width / 2, this.height / 4, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#77FF77';
+            ctx.beginPath();
+            ctx.arc(this.x + this.width / 2, this.y + this.height * 0.4, this.width * 0.2, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (this.type === 'balloon') {
+            ctx.fillStyle = '#FF69B4';
+            ctx.beginPath();
+            ctx.ellipse(this.x + this.width / 2, this.y + this.height / 2, this.width / 2, this.height / 2, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#FF69B4';
+            ctx.beginPath();
+            ctx.moveTo(this.x + this.width / 2, this.y + this.height);
+            ctx.lineTo(this.x + this.width / 2, this.y + this.height + this.height * 0.4);
+            ctx.stroke();
         }
     };
 
@@ -296,8 +334,10 @@ function Obstacle(x, y, width, height, type = 'pillar') {
                 this.vx *= -1;
                 this.x += this.vx;
             }
-            if (this.type === 'ufo') {
-                this.y += Math.sin((Date.now() / 200) + this.bobOffset) * 0.5;
+            if (this.type === 'ufo' || this.type === 'balloon') {
+                const freq = this.type === 'balloon' ? 300 : 200;
+                const amp = this.type === 'balloon' ? 0.3 : 0.5;
+                this.y += Math.sin((Date.now() / freq) + this.bobOffset) * amp;
             }
         }
     };
@@ -612,11 +652,11 @@ function spawnObstacle() {
         ));
     }
 
-    const dynamicTypes = ['cloud', 'crow', 'helicopter', 'ufo'];
+    const dynamicTypes = ['cloud', 'crow', 'helicopter', 'ufo', 'balloon'];
     const enemyCount = Math.max(0, difficulty - 1);
     for (let i = 0; i < enemyCount; i++) {
         const type = dynamicTypes[Math.floor(Math.random() * dynamicTypes.length)];
-        const size = type === 'cloud' ? 40 : 30;
+        const size = type === 'cloud' ? 40 : type === 'balloon' ? 35 : 30;
         const blockWidth = size;
         const blockHeight = size;
         const side = Math.random() < 0.5 ? 'left' : 'right';
