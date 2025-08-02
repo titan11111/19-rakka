@@ -14,7 +14,7 @@ const rightButton = document.getElementById('rightButton');
 const upButton = document.getElementById('upButton');
 
 // パワーアップ表示要素
-const speedBoostTimeDisplay = document.getElementById('speedBoostTime');
+const featherTimeDisplay = document.getElementById('featherTime');
 const shieldTimeDisplay = document.getElementById('shieldTime');
 const starCountDisplay = document.getElementById('starCount');
 
@@ -47,9 +47,10 @@ const MIN_OBSTACLE_GAP = 80;
 let lastObstacleSpawnTime = 0;
 let lastItemSpawnTime = 0;
 let lastDifficultyScore = -1;
+let lastFeatherScore = 0;
 
 // パワーアップ効果
-let speedBoostTime = 0;
+let featherTime = 0;
 let shieldTime = 0;
 let starCount = 0;
 
@@ -128,13 +129,13 @@ function Player() {
         }
 
         // 体（黄色の楕円）
-        ctx.fillStyle = speedBoostTime > 0 ? '#FFFF00' : '#FFD700';
+        ctx.fillStyle = featherTime > 0 ? '#FFFF00' : '#FFD700';
         ctx.beginPath();
         ctx.ellipse(centerX, centerY, size * 0.4, size * 0.35, 0, 0, 2 * Math.PI);
         ctx.fill();
 
         // 耳
-        ctx.fillStyle = speedBoostTime > 0 ? '#FFFF00' : '#FFD700';
+        ctx.fillStyle = featherTime > 0 ? '#FFFF00' : '#FFD700';
         ctx.beginPath();
         ctx.moveTo(centerX - size * 0.25, centerY - size * 0.3);
         ctx.lineTo(centerX - size * 0.15, centerY - size * 0.45);
@@ -211,7 +212,7 @@ function Player() {
         this.velocityY += GRAVITY;
         this.y += this.velocityY;
 
-        const currentSpeed = speedBoostTime > 0 ? PLAYER_SPEED * 1.8 : PLAYER_SPEED;
+        const currentSpeed = PLAYER_SPEED;
         
         if (this.isMovingLeft) {
             this.x -= currentSpeed;
@@ -223,7 +224,7 @@ function Player() {
         if (this.x < 0) this.x = 0;
         if (this.x + this.width > GAME_WIDTH) this.x = GAME_WIDTH - this.width;
 
-        if (speedBoostTime > 0) {
+        if (featherTime > 0) {
             this.expression = 'excited';
         } else if (this.velocityY > 2) {
             this.expression = 'surprised';
@@ -349,7 +350,7 @@ function Item(x, y, type) {
     this.y = y;
     this.width = ITEM_SIZE;
     this.height = ITEM_SIZE;
-    this.type = type; // 'speed', 'shield', 'star'
+    this.type = type; // 'feather', 'shield', 'star'
     this.bobOffset = Math.random() * Math.PI * 2;
     this.time = 0;
 
@@ -358,20 +359,17 @@ function Item(x, y, type) {
         const centerY = this.y + this.height / 2 + Math.sin(this.time * 0.1 + this.bobOffset) * 3;
         const size = this.width;
 
-        if (this.type === 'speed') {
-            // スピードアップ（雷）
-            ctx.fillStyle = '#FFFF00';
-            ctx.strokeStyle = '#FFD700';
+        if (this.type === 'feather') {
+            // 羽
+            ctx.fillStyle = '#ADD8E6';
+            ctx.strokeStyle = '#87CEFA';
             ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.moveTo(centerX - size * 0.2, centerY - size * 0.3);
-            ctx.lineTo(centerX + size * 0.1, centerY - size * 0.1);
-            ctx.lineTo(centerX - size * 0.1, centerY);
-            ctx.lineTo(centerX + size * 0.2, centerY + size * 0.3);
-            ctx.lineTo(centerX - size * 0.1, centerY + size * 0.1);
-            ctx.lineTo(centerX + size * 0.1, centerY);
-            ctx.closePath();
+            ctx.ellipse(centerX, centerY, size * 0.15, size * 0.35, 0, 0, 2 * Math.PI);
             ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY - size * 0.35);
+            ctx.lineTo(centerX, centerY + size * 0.35);
             ctx.stroke();
         } else if (this.type === 'shield') {
             // シールド
@@ -465,9 +463,10 @@ function initGame() {
     score = 0;
     gameOver = false;
     
-    speedBoostTime = 0;
+    featherTime = 0;
     shieldTime = 0;
     starCount = 0;
+    lastFeatherScore = 0;
     
     updateDisplays();
     
@@ -484,18 +483,24 @@ function initGame() {
 function updateDisplays() {
     scoreDisplay.textContent = score;
     highScoreDisplay.textContent = highScore;
-    speedBoostTimeDisplay.textContent = Math.ceil(speedBoostTime / 60);
+    featherTimeDisplay.textContent = Math.ceil(featherTime / 60);
     shieldTimeDisplay.textContent = Math.ceil(shieldTime / 60);
     starCountDisplay.textContent = starCount;
 }
 
 // アイテム生成
 function spawnItem() {
-    const types = ['slow', 'shield', 'star']; // スピードアップ→スローダウンに変更
+    const types = ['shield', 'star'];
     const type = types[Math.floor(Math.random() * types.length)];
     const x = Math.random() * (GAME_WIDTH - ITEM_SIZE);
     const y = GAME_HEIGHT;
     items.push(new Item(x, y, type));
+}
+
+function spawnFeather() {
+    const x = Math.random() * (GAME_WIDTH - ITEM_SIZE);
+    const y = GAME_HEIGHT;
+    items.push(new Item(x, y, 'feather'));
 }
 
 function canSpawnObstacle() {
@@ -558,7 +563,8 @@ function gameLoop(timestamp) {
         lastDifficultyScore = score;
     }
 
-    GRAVITY = OBSTACLE_SPEED * 0.04;
+    const fallMultiplier = featherTime > 0 ? 0.7 : 1;
+    GRAVITY = OBSTACLE_SPEED * 0.04 * fallMultiplier;
 
     player.update();
     player.draw();
@@ -595,8 +601,9 @@ function gameLoop(timestamp) {
         if (checkCollision(player, items[i])) {
             const item = items.splice(i, 1)[0];
             playItemSound();
-            if (item.type === 'slow') {
-                speedBoostTime = 300;
+            if (item.type === 'feather') {
+                featherTime = 300;
+                player.velocityY *= 0.7;
                 createParticles(item.x, item.y, 'rgba(173,216,230,1)', 12); // 羽＝淡い青
             } else if (item.type === 'shield') {
                 shieldTime = 1200;
@@ -610,11 +617,16 @@ function gameLoop(timestamp) {
         }
     }
 
-    if (speedBoostTime > 0) speedBoostTime--;
+    if (featherTime > 0) featherTime--;
     if (shieldTime > 0) shieldTime--;
 
     score++;
     updateDisplays();
+
+    if (score % 1000 === 0 && score !== 0 && score !== lastFeatherScore) {
+        spawnFeather();
+        lastFeatherScore = score;
+    }
 
     if (now - lastObstacleSpawnTime > OBSTACLE_SPAWN_INTERVAL && canSpawnObstacle()) {
         spawnObstacle();
