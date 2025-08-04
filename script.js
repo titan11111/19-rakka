@@ -39,7 +39,7 @@ let GRAVITY = 0.008;
 const OBSTACLE_HEIGHT = 15;
 let OBSTACLE_SPEED = 0.2;
 let OBSTACLE_SPAWN_INTERVAL = 1200;
-const ITEM_SIZE = 20;
+const ITEM_SIZE = 24; // アイテムサイズを120%に拡大
 const ITEM_SPEED = 0.15;
 const MIN_OBSTACLE_GAP = 80;
 
@@ -52,6 +52,7 @@ let lastFeatherScore = 0;
 // パワーアップ効果
 let featherTime = 0;
 let shieldTime = 0;
+let shieldHits = 0; // シールドで耐えられる回数
 let starCount = 0;
 
 // 効果音（Web Audio API使用）
@@ -360,17 +361,21 @@ function Item(x, y, type) {
         const size = this.width;
 
         if (this.type === 'feather') {
-            // 羽
-            ctx.fillStyle = '#ADD8E6';
-            ctx.strokeStyle = '#87CEFA';
+            // 羽（虹色で点滅させて派手に）
+            const hue = (this.time * 5) % 360;
+            ctx.fillStyle = `hsl(${hue},100%,70%)`;
+            ctx.strokeStyle = `hsl(${hue},100%,50%)`;
             ctx.lineWidth = 2;
+            ctx.shadowColor = `hsl(${hue},100%,50%)`;
+            ctx.shadowBlur = 10;
             ctx.beginPath();
-            ctx.ellipse(centerX, centerY, size * 0.15, size * 0.35, 0, 0, 2 * Math.PI);
+            ctx.ellipse(centerX, centerY, size * 0.2, size * 0.4, 0, 0, 2 * Math.PI);
             ctx.fill();
             ctx.beginPath();
-            ctx.moveTo(centerX, centerY - size * 0.35);
-            ctx.lineTo(centerX, centerY + size * 0.35);
+            ctx.moveTo(centerX, centerY - size * 0.4);
+            ctx.lineTo(centerX, centerY + size * 0.4);
             ctx.stroke();
+            ctx.shadowBlur = 0;
         } else if (this.type === 'shield') {
             // シールド
             ctx.fillStyle = '#00FFFF';
@@ -465,6 +470,7 @@ function initGame() {
     
     featherTime = 0;
     shieldTime = 0;
+    shieldHits = 0;
     starCount = 0;
     lastFeatherScore = 0;
     
@@ -588,6 +594,10 @@ function gameLoop(timestamp) {
                 playHitSound();
                 createParticles(o.x + o.width / 2, o.y + o.height / 2, 'rgba(0,255,255,1)', 8);
                 obstacles.splice(i, 1); // バリアで敵を倒す
+                shieldHits--;
+                if (shieldHits <= 0) {
+                    shieldTime = 0;
+                }
                 i--;
                 continue;
             } else {
@@ -607,6 +617,7 @@ function gameLoop(timestamp) {
                 createParticles(item.x, item.y, 'rgba(173,216,230,1)', 12); // 羽＝淡い青
             } else if (item.type === 'shield') {
                 shieldTime = 1200;
+                shieldHits = 5;
                 createParticles(item.x, item.y, 'rgba(0,255,255,1)', 12);
             } else if (item.type === 'star') {
                 starCount++;
