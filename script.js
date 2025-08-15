@@ -39,8 +39,9 @@ let GRAVITY = 0.008;
 const OBSTACLE_HEIGHT = 15;
 let OBSTACLE_SPEED = 0.2;
 let OBSTACLE_SPAWN_INTERVAL = 1200;
-const ITEM_SIZE = 24; // アイテムサイズを120%に拡大
+const ITEM_SIZE = 26; // アイテムサイズを130%に拡大
 const ITEM_SPEED = 0.15;
+let ITEM_SPAWN_INTERVAL = 4000; // アイテム出現間隔を倍にして量を半減
 const MIN_OBSTACLE_GAP = 80;
 
 
@@ -644,7 +645,7 @@ function gameLoop(timestamp) {
         lastObstacleSpawnTime = now;
     }
 
-    if (now - lastItemSpawnTime > 2000) {
+    if (now - lastItemSpawnTime > ITEM_SPAWN_INTERVAL) {
         spawnItem();
         lastItemSpawnTime = now;
     }
